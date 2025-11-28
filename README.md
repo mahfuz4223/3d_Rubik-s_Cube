@@ -7,10 +7,6 @@ A small, fun project for learning 3D concepts by exploring and interacting with 
 
 1. Open the demo
    - If the project has an `index.html` (or similar demo file), open it in your web browser.
-   - If the demo uses ES modules or a development server and opening the file directly doesn't work, run a simple local HTTP server from the project folder, for example:
-     - Python 3: `python -m http.server 8000`
-     - Node (http-server): `npx http-server`
-   - Then open `http://localhost:8000` (or the URL shown by your server).
 
 2. Interact with the cube
    - Use the mouse or touch (drag) to rotate the camera around the cube.
