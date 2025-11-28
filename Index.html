@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Rubik's Precision</title>
+    <style>
+        /* --- GENERAL STYLES --- */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #1e1e1e 0%, #000000 100%);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            touch-action: none; 
+            color: white;
+            user-select: none;
+        }
+
+        /* --- HUD --- */
+        #top-bar {
+            position: absolute;
+            top: 0; left: 0; width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        h1 { margin: 0; font-size: 22px; color: #ffd700; text-transform: uppercase; letter-spacing: 2px; }
+        
+        /* AI Box */
+        #ai-box {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00d2ff;
+            border-radius: 12px;
+            padding: 10px 20px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        #ai-box.active { opacity: 1; transform: translateY(0); }
+        .ai-move { font-size: 28px; font-weight: bold; color: white; }
+        .ai-desc { font-size: 12px; color: #ccc; }
+
+        /* --- BOTTOM TOOLBAR --- */
+        #bottom-bar {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .tool-btn {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        #btn-ai.active { background: #00d2ff; color: black; }
+
+        /* --- EXPANDED CONTROLS OVERLAY --- */
+        #controls-overlay {
+            position: absolute;
+            bottom: 80px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            transform: scale(0.95);
+        }
+        #controls-overlay.visible { opacity: 1; pointer-events: auto; transform: scale(1); }
+
+        .control-row {
+            display: flex;
+            gap: 15px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+        }
+        
+        .face-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .face-label { font-size: 9px; color: #aaa; text-transform: uppercase; font-weight: bold;}
+
+        .btn-pair { display: flex; gap: 4px; }
+
+        .d-btn {
+            width: 40px; height: 40px;
+            border-radius: 8px;
+            background: #2b2b2b;
+            border: 1px solid #444;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 0 #111;
+        }
+        .d-btn:active { transform: translateY(3px); box-shadow: none; }
+        
+        /* Coloring the Prime buttons slightly differently */
+        .prime { background: #3a2020; border-color: #553030; }
+
+        /* AI Suggestion Highlight */
+        .d-btn.suggested {
+            border-color: #00d2ff;
+            background: #005a6e;
+            box-shadow: 0 0 15px #00d2ff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <h1>Rubik's Precision</h1>
+        <div id="ai-box">
+            <div class="ai-move" id="ai-text">--</div>
+            <div class="ai-desc" id="ai-desc">AI Solver</div>
+        </div>
+    </div>
+
+    <div id="controls-overlay">
+        
+        <div class="control-row">
+            <div class="face-group">
+                <span class="face-label">Left</span>
+                <div class="btn-pair">
+                    <button class="d-btn" id="btn-L">L</button>
+                    <button class="d-btn prime" id="btn-L-prime">L'</button>
+                </div>
+            </div>
+            <div class="face-group">
+                <span class="face-label">Right</span>
+                <div class="btn-pair">
+                    <button class="d-btn" id="btn-R">R</button>
+                    <button class="d-btn prime" id="btn-R-prime">R'</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="face-group">
+                <span class="face-label">Up</span>
+                <div class="btn-pair">
+                    <button class="d-btn" id="btn-U">U</button>
+                    <button class="d-btn prime" id="btn-U-prime">U'</button>
+                </div>
+            </div>
+            <div class="face-group">
+                <span class="face-label">Down</span>
+                <div class="btn-pair">
+                    <button class="d-btn" id="btn-D">D</button>
+                    <button class="d-btn prime" id="btn-D-prime">D'</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="face-group">
+                <span class="face-label">Front</span>
+                <div class="btn-pair">
+                    <button class="d-btn" id="btn-F">F</button>
+                    <button class="d-btn prime" id="btn-F-prime">F'</button>
+                </div>
+            </div>
+            <div class="face-group">
+                <span class="face-label">Back</span>
+                <div class="btn-pair">
+                    <button class="d-btn" id="btn-B">B</button>
+                    <button class="d-btn prime" id="btn-B-prime">B'</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="bottom-bar">
+        <button class="tool-btn" id="btn-toggle-ctrl">🎮 Pad</button>
+        <button class="tool-btn" id="btn-scramble">🔀 Scramble</button>
+        <button class="tool-btn" id="btn-ai">💡 AI Hint</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+        const CUBE_SIZE = 1;
+        const SPACING = 0.01;
+        const TOTAL_SIZE = CUBE_SIZE + SPACING;
+        
+        let cubes = [];
+        let moveHistory = []; 
+        let isAnimating = false;
+        let aiEnabled = false;
+
+        // Scene Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+        camera.position.set(6, 5, 8);
+        camera.lookAt(0,0,0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.enablePan = false;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // Cube Generation
+        const group = new THREE.Group();
+        scene.add(group);
+        const colors = { base: 0x111111, R: 0xb90000, L: 0xff5900, U: 0xffffff, D: 0xffd500, F: 0x009b48, B: 0x0045ad };
+
+        function createCube() {
+            const geo = new RoundedBoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE, 4, 0.1);
+            for(let x=-1; x<=1; x++) {
+                for(let y=-1; y<=1; y++) {
+                    for(let z=-1; z<=1; z++) {
+                        const mats = [
+                            new THREE.MeshStandardMaterial({ color: x===1 ? colors.R : colors.base, roughness:0.1 }),
+                            new THREE.MeshStandardMaterial({ color: x===-1 ? colors.L : colors.base, roughness:0.1 }),
+                            new THREE.MeshStandardMaterial({ color: y===1 ? colors.U : colors.base, roughness:0.1 }),
+                            new THREE.MeshStandardMaterial({ color: y===-1 ? colors.D : colors.base, roughness:0.1 }),
+                            new THREE.MeshStandardMaterial({ color: z===1 ? colors.F : colors.base, roughness:0.1 }),
+                            new THREE.MeshStandardMaterial({ color: z===-1 ? colors.B : colors.base, roughness:0.1 })
+                        ];
+                        const mesh = new THREE.Mesh(geo, mats);
+                        mesh.position.set(x*TOTAL_SIZE, y*TOTAL_SIZE, z*TOTAL_SIZE);
+                        group.add(mesh);
+                        cubes.push(mesh);
+                    }
+                }
+            }
+        }
+        createCube();
+
+        // Helper to get logic from move
+        function getNotation(axis, layer, dir) {
+            let letter = "";
+            let isPrime = false;
+
+            if (axis === 'x') {
+                if (layer > 0.5) { letter = "R"; isPrime = (dir === 1); } 
+                else if (layer < -0.5) { letter = "L"; isPrime = (dir === -1); } 
+            } else if (axis === 'y') {
+                if (layer > 0.5) { letter = "U"; isPrime = (dir === 1); } 
+                else if (layer < -0.5) { letter = "D"; isPrime = (dir === -1); } 
+            } else if (axis === 'z') {
+                if (layer > 0.5) { letter = "F"; isPrime = (dir === 1); } 
+                else if (layer < -0.5) { letter = "B"; isPrime = (dir === -1); } 
+            }
+
+            // Construct ID
+            const primeSuffix = isPrime ? "-prime" : "";
+            return {
+                text: letter + (isPrime ? "'" : ""),
+                desc: `${letter} ${isPrime ? "Anti-Clockwise" : "Clockwise"}`,
+                btnId: `btn-${letter}${primeSuffix}`
+            };
+        }
+
+        function rotateFace(axis, layerPos, direction, speed=300) {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            // Logic: Reverse move cancels previous move
+            const lastMove = moveHistory[moveHistory.length - 1];
+            const isInverse = lastMove && 
+                              lastMove.axis === axis && 
+                              Math.abs(lastMove.layerPos - layerPos) < 0.1 && 
+                              lastMove.direction === -direction;
+
+            if (isInverse) moveHistory.pop();
+            else moveHistory.push({ axis, layerPos, direction });
+
+            const activeCubies = cubes.filter(c => Math.abs(c.position[axis] - layerPos) < 0.1);
+            const pivot = new THREE.Object3D();
+            group.add(pivot);
+            activeCubies.forEach(c => pivot.attach(c));
+
+            const targetRot = (Math.PI/2) * direction;
+            const start = Date.now();
+
+            function loop() {
+                const p = Math.min((Date.now() - start)/speed, 1);
+                const ease = 1 - Math.pow(1-p, 3);
+                pivot.rotation[axis] = targetRot * ease;
+
+                if(p < 1) {
+                    requestAnimationFrame(loop);
+                } else {
+                    pivot.rotation[axis] = targetRot;
+                    pivot.updateMatrixWorld();
+                    activeCubies.forEach(c => {
+                        group.attach(c);
+                        c.position.set(
+                            Math.round(c.position.x/TOTAL_SIZE)*TOTAL_SIZE,
+                            Math.round(c.position.y/TOTAL_SIZE)*TOTAL_SIZE,
+                            Math.round(c.position.z/TOTAL_SIZE)*TOTAL_SIZE
+                        );
+                        c.updateMatrixWorld();
+                    });
+                    group.remove(pivot);
+                    isAnimating = false;
+                    updateAI();
+                }
+            }
+            loop();
+        }
+
+        function updateAI() {
+            if (!aiEnabled) return;
+            const aiBox = document.getElementById('ai-box');
+            const aiText = document.getElementById('ai-text');
+            const aiDesc = document.getElementById('ai-desc');
+            
+            document.querySelectorAll('.d-btn').forEach(b => b.classList.remove('suggested'));
+
+            if (moveHistory.length === 0) {
+                aiText.innerText = "SOLVED";
+                aiDesc.innerText = "";
+                return;
+            }
+
+            const lastMove = moveHistory[moveHistory.length - 1];
+            // Suggest the reverse move
+            const suggestion = getNotation(lastMove.axis, lastMove.layerPos, -lastMove.direction);
+            
+            aiText.innerText = suggestion.text;
+            aiDesc.innerText = suggestion.desc;
+            
+            const btn = document.getElementById(suggestion.btnId);
+            if (btn) btn.classList.add('suggested');
+        }
+
+        // --- BUTTON MAPPING ---
+        // Normal Direction (Clockwise relative to face)
+        // R (Right): -1, L (Left): 1
+        // U (Up): -1, D (Down): 1
+        // F (Front): -1, B (Back): 1
+        const btnMap = {
+            'btn-L': ['x', -TOTAL_SIZE, 1],       'btn-L-prime': ['x', -TOTAL_SIZE, -1],
+            'btn-R': ['x', TOTAL_SIZE, -1],       'btn-R-prime': ['x', TOTAL_SIZE, 1],
+            
+            'btn-U': ['y', TOTAL_SIZE, -1],       'btn-U-prime': ['y', TOTAL_SIZE, 1],
+            'btn-D': ['y', -TOTAL_SIZE, 1],       'btn-D-prime': ['y', -TOTAL_SIZE, -1],
+            
+            'btn-F': ['z', TOTAL_SIZE, -1],       'btn-F-prime': ['z', TOTAL_SIZE, 1],
+            'btn-B': ['z', -TOTAL_SIZE, 1],       'btn-B-prime': ['z', -TOTAL_SIZE, -1]
+        };
+
+        Object.keys(btnMap).forEach(id => {
+            const btn = document.getElementById(id);
+            if(btn) {
+                btn.addEventListener('click', () => {
+                    const [ax, lay, dir] = btnMap[id];
+                    rotateFace(ax, lay, dir);
+                });
+            }
+        });
+
+        // UI Handlers
+        document.getElementById('btn-ai').addEventListener('click', (e) => {
+            aiEnabled = !aiEnabled;
+            const box = document.getElementById('ai-box');
+            if (aiEnabled) { box.classList.add('active'); e.target.classList.add('active'); updateAI(); }
+            else { box.classList.remove('active'); e.target.classList.remove('active'); document.querySelectorAll('.d-btn').forEach(b => b.classList.remove('suggested')); }
+        });
+
+        document.getElementById('btn-scramble').addEventListener('click', () => {
+            if(isAnimating) return;
+            let i=0;
+            const keys = Object.keys(btnMap); // Use buttons to ensure valid moves
+            function step() {
+                if(i>=20) return;
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                const [ax, lay, dir] = btnMap[randomKey];
+                rotateFace(ax, lay, dir, 50);
+                setTimeout(step, 60);
+                i++;
+            }
+            step();
+        });
+        
+        const ctrlOverlay = document.getElementById('controls-overlay');
+        document.getElementById('btn-toggle-ctrl').addEventListener('click', () => {
+            ctrlOverlay.classList.toggle('visible');
+        });
+
+        // Simple Swipe (Same as before)
+        const ray = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let startPos=null, intersectObj=null, normal=null;
+
+        window.addEventListener('pointerdown', e => {
+            if(e.target.closest('button') || e.target.closest('.control-row')) return;
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
+            mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
+            ray.setFromCamera(mouse, camera);
+            const hits = ray.intersectObjects(cubes);
+            if(hits.length){
+                controls.enabled=false;
+                startPos={x:e.clientX, y:e.clientY};
+                intersectObj=hits[0].object;
+                normal=hits[0].face.normal.clone().transformDirection(intersectObj.matrixWorld).round();
+            }
+        });
+
+        window.addEventListener('pointerup', e => {
+            if(!startPos) return;
+            const dx = e.clientX-startPos.x;
+            const dy = e.clientY-startPos.y;
+            if(Math.abs(dx)>10 || Math.abs(dy)>10){
+                let ax, dir;
+                const anx=Math.abs(normal.x), any=Math.abs(normal.y);
+                if(anx>0.5) { 
+                    if(Math.abs(dy)>Math.abs(dx)) { ax='z'; dir=dy>0?1:-1; }
+                    else { ax='y'; dir=dx>0?1:-1; }
+                } else if(any>0.5) { 
+                     if(Math.abs(dy)>Math.abs(dx)) { ax='x'; dir=dy>0?-1:1; }
+                    else { ax='z'; dir=dx>0?-1:1; }
+                } else { 
+                    if(Math.abs(dy)>Math.abs(dx)) { ax='x'; dir=dy>0?1:-1; }
+                    else { ax='y'; dir=dx>0?1:-1; }
+                }
+                if(ax) rotateFace(ax, intersectObj.position[ax], dir);
+            }
+            controls.enabled=true;
+            startPos=null;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+        window.addEventListener('resize', () => {
+            camera.aspect=window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth,window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
